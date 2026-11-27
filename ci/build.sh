@@ -49,5 +49,7 @@ docker build "${COMMON[@]}" \
 ok "${WEB_IMAGE}:${TAG}"
 
 log "sizes"
-docker image ls --format '    {{.Repository}}:{{.Tag}}  {{.Size}}' \
-    "${PHP_IMAGE}:${TAG}" "${WEB_IMAGE}:${TAG}"
+# One image per call: Docker 29+ rejects `image ls img1 img2`.
+for img in "${PHP_IMAGE}:${TAG}" "${WEB_IMAGE}:${TAG}"; do
+    docker image ls --format '    {{.Repository}}:{{.Tag}}  {{.Size}}' "${img}"
+done
