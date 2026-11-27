@@ -1,0 +1,9 @@
+# Jenkins workspace / local run artifacts
+.ci-out/
+
+# Jenkins container secrets
+jenkins/.env
+
+# Local overrides
+.env
+*.local.yaml

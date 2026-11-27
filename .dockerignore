@@ -1,0 +1,36 @@
+# Build context stays tiny: we download the upstream release archive inside the
+# image instead of sending the working tree. Keep this file anyway — it is the
+# safety net for the day someone switches to `COPY . .`.
+.git
+.github
+.gitignore
+.agents
+.devcontainer
+.docker
+.vscode
+
+**/node_modules
+**/vendor
+node_modules
+vendor
+
+files/
+config/
+marketplace/
+plugins/
+tests/
+tests/e2e/output
+.dump/
+
+*.log
+*.tar.gz
+*.tgz
+*.zip
+
+README.md
+CHANGELOG.md
+CONTRIBUTING.md
+INSTALL.md
+SUPPORT.md
+THREAT_MODEL.md
+apirest.md

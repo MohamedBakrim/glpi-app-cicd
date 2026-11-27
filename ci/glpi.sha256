@@ -1,0 +1,7 @@
+# Pinned upstream archives: <glpi-tag>  <sha256 of the GitHub archive tarball>
+#
+# GitHub archive checksums are stable in practice but not guaranteed by GitHub.
+# If you need a hard guarantee, switch the download to the release asset
+# (glpi-<version>.tgz) published on the GitHub release page.
+#
+# Add entries with: ./ci/pin-version.sh <version>

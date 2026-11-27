@@ -1,0 +1,9 @@
+# Scripts are executed by bash inside Linux containers: force LF everywhere.
+* text=auto
+
+*.sh        text eol=lf
+Jenkinsfile text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+Dockerfile  text eol=lf
+nginx.conf  text eol=lf

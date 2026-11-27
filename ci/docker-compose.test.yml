@@ -1,0 +1,61 @@
+# Throwaway stack used by ci/smoke.sh.
+# Every value comes from the environment so the same file tests any tag.
+services:
+  db:
+    image: mariadb:11.8
+    environment:
+      MARIADB_ROOT_PASSWORD: glpi
+      MARIADB_DATABASE: glpi
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 3s
+      timeout: 3s
+      retries: 40
+      start_period: 10s
+
+  # Runs once: installs the schema into the throwaway database.
+  install:
+    image: "${PHP_IMAGE:?PHP_IMAGE is required}:${TAG:?TAG is required}"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - config:/etc/glpi
+      - var:/var/lib/glpi
+    entrypoint: ["php"]
+    command:
+      - bin/console
+      - database:install
+      - -r
+      - -f
+      - --db-host=db
+      - --db-name=glpi
+      - --db-user=root
+      - --db-password=glpi
+      - --no-interaction
+      - --no-telemetry
+
+  php:
+    image: "${PHP_IMAGE:?PHP_IMAGE is required}:${TAG:?TAG is required}"
+    depends_on:
+      install:
+        condition: service_completed_successfully
+    volumes:
+      - config:/etc/glpi
+      - var:/var/lib/glpi
+    networks:
+      default:
+        aliases:
+          # nginx.conf upstream is `glpi-php:9000`; keep the alias so the exact
+          # production config is exercised here instead of a test-only variant.
+          - glpi-php
+
+  web:
+    image: "${WEB_IMAGE:?WEB_IMAGE is required}:${TAG:?TAG is required}"
+    depends_on:
+      php:
+        condition: service_started
+
+volumes:
+  config:
+  var:
