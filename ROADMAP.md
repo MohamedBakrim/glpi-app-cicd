@@ -35,19 +35,19 @@ image ──► smoke-proven image ──► registry ──► chart values ─
 1. **Five hook scripts** the chart calls from `/usr/local/bin` are not in the image
    yet (`glpi-verify-dir.sh`, `glpi-db-install.sh`, `glpi-db-upgrade.sh`,
    `glpi-db-configure.sh`, `glpi-cache-configure.sh`). Addressed in step 4.
-2. **Port 80 vs 8080** — chart runs nginx as UID 82 with `capabilities.drop: [ALL]`.
-   Addressed in step 6.
-3. **Where ArgoCD reads values** — the chart repo has no `values-prod.yaml`.
-   Addressed in step 7.
+2. ~~**Port 80 vs 8080**~~ — fixed in `glpi-chart-cicd`: nginx listens on 8080 and
+   the containerPort is 8080; the Service still exposes 80 → named port `http`.
+3. ~~**Where ArgoCD reads values**~~ — `glpi-gitops-cicd/values-prod.yaml`, wired
+   in as a second source (`$values`) by `argocd/application.yaml`.
 
 ## Progress
 
-- [ ] 1 · repo + php-fpm image
-- [ ] 2 · nginx image
-- [ ] 3 · smoke stack
+- [x] 1 · repo + php-fpm image — `./ci/build.sh` green, 1.48 GB
+- [x] 2 · nginx image — built, boots, serves the login page (356 MB)
+- [x] 3 · smoke stack — `./ci/smoke.sh` exits 0 (cold install on MariaDB 11.8)
 - [ ] 4 · hook scripts
 - [ ] 5 · publish
-- [ ] 6 · chart values + port
+- [ ] 6 · chart values + port — chart renders 8080, values in GitOps repo
 - [ ] 7 · GitOps + ArgoCD
 - [ ] 8 · migration path
 - [ ] 9 · Jenkins end-to-end

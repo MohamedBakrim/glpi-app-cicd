@@ -1,0 +1,15 @@
+# Local demo overlay for ci/docker-compose.test.yml.
+#
+# Publishes the nginx container on the host so you can click through the app
+# after `ci/smoke.sh` has proven it works. 8080 is often already taken (Steam,
+# Jenkins, other dev servers), so this uses 8090 by default.
+#
+#   docker compose -p glpi-demo \
+#     -f ci/docker-compose.test.yml \
+#     -f ci/docker-compose.demo.yml up -d --wait db
+#
+# Then install once and start the app (see RUN.md).
+services:
+  web:
+    ports:
+      - "8090:8080"

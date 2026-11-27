@@ -62,14 +62,15 @@ to click around:
 
 ```bash
 export TAG=12.0.2-local MSYS_NO_PATHCONV=1
-docker compose -p glpi-demo -f ci/docker-compose.test.yml up -d db
-docker compose -p glpi-demo -f ci/docker-compose.test.yml run --rm install
-docker compose -p glpi-demo -f ci/docker-compose.test.yml up -d php web
-# then: http://localhost:8080  (login: glpi/glpi)
+C="docker compose -p glpi-demo -f ci/docker-compose.test.yml -f ci/docker-compose.demo.yml"
+$C up -d --wait db
+$C run --rm install
+$C up -d --no-deps php web
+# then: http://localhost:8090  (login: glpi/glpi)
 ```
 
-> The compose file does not publish a host port by default. Add
-> `ports: ["8080:8080"]` under `web:` if you want to open it in a browser.
+`ci/docker-compose.demo.yml` publishes nginx on **8090** — 8080 is commonly
+already in use. Stop it with `$C down -v`.
 
 ---
 
