@@ -173,7 +173,7 @@ Then hit *Build with Parameters*. A green run means:
 
 1. both images built with a verified upstream archive,
 2. a cold install succeeded on MariaDB 11.8,
-3. login page, `apirest.php` → 401, `database:is_up_to_date`, uid 82,
+3. login page, `api.php` → 403 (auth required), `database:is_up_to_date`, uid 82,
 4. no PHP errors logged,
 5. no HIGH/CRITICAL fixable CVEs,
 6. GitOps repo bumped and ArgoCD healthy, edge answering.

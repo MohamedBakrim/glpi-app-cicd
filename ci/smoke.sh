@@ -60,10 +60,14 @@ body_size=$(in_php curl -fsS http://web:8080/ | wc -c | tr -d ' \r')
 [ "$body_size" -gt 2000 ] || fail "login page suspiciously small (${body_size} bytes)"
 ok "login page rendered (${body_size} bytes)"
 
-# 2. REST API answers with auth required, not 500
-code=$(http_code http://web:8080/apirest.php)
-[ "$code" = "401" ] || fail "apirest.php returned ${code}, expected 401"
-ok "apirest.php -> 401"
+# 2. API answers "authentication required", not 404/500.
+# GLPI 12 replaced the legacy apirest.php with the HL API at /api.php, which
+# returns 403 (JSON) without credentials. Accept 401 too, for older releases.
+code=$(http_code http://web:8080/api.php)
+case "$code" in
+    401|403) ok "api.php -> ${code} (auth required)" ;;
+    *)       fail "api.php returned ${code}, expected 401/403" ;;
+esac
 
 # 3. database is fully migrated for this release
 in_php php bin/console database:is_up_to_date --env=production >/dev/null \

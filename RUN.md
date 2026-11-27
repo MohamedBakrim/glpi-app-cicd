@@ -36,7 +36,7 @@ What a green run looks like:
   ok: database:install succeeded
 ==> checks
   ok: login page rendered (… bytes)
-  ok: apirest.php -> 401
+  ok: api.php -> 403 (auth required)
   ok: database:is_up_to_date
   ok: runs as uid 82
   ok: index.php served
