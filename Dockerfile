@@ -206,9 +206,10 @@ CMD ["php-fpm"]
 # -----------------------------------------------------------------------------
 # 4. Nginx runtime — static assets + proxy to PHP-FPM
 # -----------------------------------------------------------------------------
-FROM nginx:1.28-alpine AS nginx
+FROM alpine:3.23 AS nginx
 
-RUN apk upgrade --no-cache
+RUN apk upgrade --no-cache \
+    && apk add --no-cache nginx
 
 LABEL org.opencontainers.image.title="glpi-nginx" \
       org.opencontainers.image.description="GLPI 12 web frontend (nginx)" \
