@@ -11,7 +11,4 @@ docker compose -p "${SMOKE_PROJECT}" -f ci/docker-compose.test.yml \
 # contains the GitOps clone, including its tokenized remote URL
 rm -rf .ci-out/gitops
 
-# deterministic-ish: drop dangling layers from failed/tagged-over builds
-docker image prune -f >/dev/null 2>&1 || true
-
 echo "cleanup done"

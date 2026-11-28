@@ -54,56 +54,53 @@ ci/docker-compose.test.yml throwaway MariaDB stack
 ci/scan.sh                 trivy gate (HIGH/CRITICAL, fixable only)
 ci/publish.sh              push immutable tags, record manifest digests
 ci/bump.sh                 digest-pinned tag bump in the GitOps repo
-ci/verify.sh               argocd app wait + edge HTTP check
-ci/cleanup.sh              always: down, drop secrets, prune
+ci/cleanup.sh              stop smoke stack, remove temporary GitOps clone
 ci/pin-version.sh          pin an upstream archive checksum
 ci/glpi.sha256             pinned versions
 docker/                    (TODO) the five glpi-*.sh hook scripts the chart calls
-jenkins/                   controller image + compose (docker socket)
+jenkins/                   multibranch job definition + REST setup script
 ```
 
-## 1. Prepare the controller
+## 1. Use the existing Jenkins controller
 
-The pipeline needs `docker`, `docker compose`, `yq` and `argocd` next to Jenkins:
+Jenkins is already deployed at <http://192.168.1.50:8080>. The pipeline needs a
+Linux agent with **Bash**, **Git**, **Docker CLI + daemon access**, **Docker Compose**,
+and **yq**. The Jenkins instance needs **Git**, **Pipeline**, **Pipeline: Multibranch**,
+**Credentials Binding**, and **Timestamper**. It does not need cluster or ArgoCD access.
 
-```bash
-cd jenkins
-echo "DOCKER_GID=$(getent group docker | cut -d: -f3)" > .env
-docker compose up -d --build
-docker exec -u jenkins jenkins docker version
-docker exec -u jenkins jenkins docker compose version
-```
-
-Required plugins: **Git**, **GitHub Branch Source**, **Pipeline**, **Credentials Binding**.
-Everything else is plain `sh`.
-
-> **Security note.** Mounting `/var/run/docker.sock` makes the Jenkins container
-> equivalent to root on the host, and any PR that can edit a `Jenkinsfile` can use it.
-> Acceptable for a homelab/portfolio cluster with trusted contributors. Before exposing
-> this to outside PRs, move building to **kaniko/buildkit rootless** in a dedicated agent
-> pod (only `ci/build.sh` changes), or give the controller a separate build agent VM.
+If builds run on the controller, it needs Docker socket access. That grants the
+builds root-equivalent control of the Docker host; allow only trusted branches to
+run pipeline changes with that access.
 
 ## 2. Credentials
 
 | ID | Kind | Used by | Notes |
 |---|---|---|---|
-| `registry-creds` | username/password | `publish.sh` | GHCR: GitHub user + PAT with `write:packages` |
+| `registry-creds` | username/password | `publish.sh` | Docker Hub account or access token with push rights to `mdbak/glpi-php-fpm` and `mdbak/glpi-nginx` |
 | `gitops-token` | secret text | `bump.sh` | PAT with `contents:write` on the GitOps repo |
-| `argocd-token` | secret text | `verify.sh` | optional; omit and the stage skips itself |
 
 ## 3. Job
 
-* New Item → **Multibranch Pipeline** → Git → this repository.
-* Build configuration: by `Jenkinsfile`.
-* Scan triggers: **GitHub hook trigger** (`POST http://jenkins:8080/github-webhook/`)
-  plus *Periodically if not otherwise run* (5 min) as a safety net.
+Create the multibranch job from Git Bash:
+
+```bash
+# Defaults to your existing Jenkins URL. Use your account name and password/API token.
+export JENKINS_ADMIN_USER=admin
+read -rsp "Jenkins password or API token: " JENKINS_ADMIN_PASSWORD; echo
+export JENKINS_ADMIN_PASSWORD
+./jenkins/setup-job.sh
+```
+
+`jenkins/multibranch.xml` is the source of truth: it points at this repository,
+loads `Jenkinsfile`, and scans branches every five minutes. The script triggers an
+initial scan. Rerunning it leaves an existing job in place and triggers another scan.
 
 Behaviour:
 
-| Build | Build + smoke + scan | Publish | GitOps bump | Verify |
-|---|---|---|---|---|
-| pull request | ✅ | ❌ | ❌ | ❌ |
-| `main` | ✅ | ✅ | ✅ | ✅ |
+| Build | Build + smoke + scan | Publish | GitOps values commit |
+|---|---|---|---|
+| pull request / `demo` | ✅ | ❌ | ❌ |
+| `main` | ✅ | ✅ | ✅ |
 
 ## 4. GitOps contract
 
@@ -120,16 +117,20 @@ nginx:
     tag: "12.0.2@sha256:..."
 ```
 
-`publish.sh` records each manifest digest in `.ci-out/digests.env`; `bump.sh` writes
-`<version>@sha256:<digest>`. A moved or re-pushed tag therefore cannot change what the
-cluster runs — only a new Git commit can.
+The pipeline builds and pushes both images to Docker Hub. `publish.sh` records each
+manifest digest in `.ci-out/digests.env`; `bump.sh` updates the two image tags in
+`values-prod.yaml` to `<version>@sha256:<digest>` and pushes a commit to the GitOps
+repo. The image repository names stay fixed. ArgoCD watches that GitOps repo and
+performs the sync and rollout; Jenkins does not call ArgoCD or the cluster.
+A moved or re-pushed tag therefore cannot change what runs — only a new Git commit can.
 
 `GITOPS_VALUES_FILE` points at the values file ArgoCD actually reads. In the
 `glpi-gitops-cicd` repo that is `values-prod.yaml` at the repo root, and
 `argocd/application.yaml` wires it into the chart as a second source (`$values`).
 
-ArgoCD application must run with automated sync + `selfHeal: true`. The chart owns the
-migration chain (`verify-dir` → `db-install`/`db-upgrade` → `configure` → `cache`).
+ArgoCD application must run with automated sync + `selfHeal: true`. Once the GitOps
+commit lands, ArgoCD applies the new digest-pinned images and handles the rollout. The
+chart owns the migration chain (`verify-dir` → `db-install`/`db-upgrade` → `configure` → `cache`).
 
 ### Chart contract on the image
 
@@ -176,7 +177,7 @@ Then hit *Build with Parameters*. A green run means:
 3. login page, `api.php` → 403 (auth required), `database:is_up_to_date`, uid 82,
 4. no PHP errors logged,
 5. no HIGH/CRITICAL fixable CVEs,
-6. GitOps repo bumped and ArgoCD healthy, edge answering.
+6. GitOps repo updated with the new image digests. ArgoCD then handles sync and rollout.
 
 ## 6. Running locally
 

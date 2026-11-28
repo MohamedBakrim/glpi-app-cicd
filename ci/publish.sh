@@ -13,18 +13,17 @@ source ci/config.sh
 : "${REGISTRY_PASSWORD:?REGISTRY_PASSWORD is empty — bind the 'registry-creds' credential}"
 
 mkdir -p .ci-out
-SHORT=$(printf '%s' "${GIT_COMMIT}" | cut -c1-7)
-
 log "docker login ${REGISTRY}"
 printf '%s' "${REGISTRY_PASSWORD}" \
     | docker login "${REGISTRY}" -u "${REGISTRY_USER}" --password-stdin >/dev/null
 ok "authenticated as ${REGISTRY_USER}"
+trap 'docker logout "${REGISTRY}" >/dev/null 2>&1 || true' EXIT
 
 # Everything human-readable goes to stderr; only the digest goes to stdout, so the
 # function can be used in a command substitution.
 publish() {
     local image="$1" tag digest
-    for tag in "${TAG}" "sha-${SHORT}" "${GLPI_VERSION}"; do
+    for tag in "${TAG}" "${GLPI_VERSION}"; do
         printf '\n\033[1;34m==> push %s:%s\033[0m\n' "${image}" "${tag}" >&2
         docker push "${image}:${tag}" >&2
     done
@@ -47,5 +46,4 @@ WEB_DIGEST=$(publish "${WEB_IMAGE}")
 log "digests"
 sed 's/^/    /' .ci-out/digests.env
 
-docker logout "${REGISTRY}" >/dev/null 2>&1 || true
 ok "published ${TAG}"

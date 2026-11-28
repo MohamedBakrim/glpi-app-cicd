@@ -1,14 +1,10 @@
 pipeline {
-    // The controller image (jenkins/Dockerfile) has the docker CLI + compose plugin
-    // and the daemon socket mounted. If you later add dedicated agents, switch this
-    // to `agent { label 'docker' }`.
     agent any
 
     options {
         timestamps()
         timeout(time: 60, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '30', artifactNumToKeepStr: '10'))
-        // Two builds must never share the same image tags / compose project.
         disableConcurrentBuilds()
     }
 
@@ -18,60 +14,35 @@ pipeline {
     }
 
     environment {
-        // Must match the Helm chart's image.repository / nginx.image.repository
-        // so a bump only changes tags. Switch to GHCR only together with an
-        // imagePullSecret in the chart.
         REGISTRY        = 'docker.io'
         IMAGE_NAMESPACE = 'mdbak'
         PHP_IMAGE       = "${REGISTRY}/${IMAGE_NAMESPACE}/glpi-php-fpm"
         WEB_IMAGE       = "${REGISTRY}/${IMAGE_NAMESPACE}/glpi-nginx"
 
         GLPI_VERSION    = "${params.GLPI_VERSION ?: '12.0.2'}"
-        // Immutable, traceable tag. Never deploy `latest`.
         TAG             = "${GLPI_VERSION}-b${env.BUILD_NUMBER}"
         SMOKE_PROJECT   = "glpi-ci-${env.BUILD_NUMBER}"
         TRIVY_SEVERITY  = 'HIGH,CRITICAL'
 
-        // GitOps repository contract — matches the chart's values structure.
-        // The pipeline writes digest-pinned tags: "12.0.2@sha256:..." like the
-        // chart already does, so a moved tag can never change what runs.
         GITOPS_REPO_URL    = 'https://github.com/MohamedBakrim/glpi-gitops-cicd.git'
         GITOPS_VALUES_FILE = 'values-prod.yaml'
-        YQ_PHP_REPO        = '.image.repository'
-        YQ_PHP_TAG         = '.image.tag'
-        YQ_WEB_REPO        = '.nginx.image.repository'
-        YQ_WEB_TAG         = '.nginx.image.tag'
-
-        ARGOCD_SERVER = 'argocd.medbak.xyz'
-        ARGOCD_APP    = 'glpi'
-        PUBLIC_URL    = 'https://glpi.medbak.xyz'
     }
 
     stages {
         stage('Prepare') {
-            steps { sh './ci/prepare.sh' }
+            steps { sh 'bash ./ci/prepare.sh' }
         }
 
         stage('Build images') {
-            steps { sh './ci/build.sh' }
+            steps { sh 'bash ./ci/build.sh' }
         }
 
         stage('Smoke test') {
-            steps { sh './ci/smoke.sh' }
-            post {
-                always {
-                    archiveArtifacts artifacts: '.ci-out/**', allowEmptyArchive: true, fingerprint: true
-                }
-            }
+            steps { sh 'bash ./ci/smoke.sh' }
         }
 
         stage('Scan') {
-            steps { sh './ci/scan.sh' }
-            post {
-                always {
-                    archiveArtifacts artifacts: '.ci-out/trivy-*.txt', allowEmptyArchive: true
-                }
-            }
+            steps { sh 'bash ./ci/scan.sh' }
         }
 
         stage('Publish') {
@@ -83,25 +54,16 @@ pipeline {
                     usernameVariable: 'REGISTRY_USER',
                     passwordVariable: 'REGISTRY_PASSWORD'
                 )]) {
-                    sh './ci/publish.sh'
+                    sh 'bash ./ci/publish.sh'
                 }
             }
         }
 
-        stage('GitOps bump') {
+        stage('Update GitOps values') {
             when { branch 'main' }
             steps {
                 withCredentials([string(credentialsId: 'gitops-token', variable: 'GITOPS_TOKEN')]) {
-                    sh './ci/bump.sh'
-                }
-            }
-        }
-
-        stage('Verify rollout') {
-            when { branch 'main' }
-            steps {
-                withCredentials([string(credentialsId: 'argocd-token', variable: 'ARGOCD_TOKEN')]) {
-                    sh './ci/verify.sh'
+                    sh 'bash ./ci/bump.sh'
                 }
             }
         }
@@ -109,8 +71,8 @@ pipeline {
 
     post {
         always {
-            // Guarded: a build that died before checkout has no workspace to clean.
-            sh 'if [ -f ci/cleanup.sh ]; then ./ci/cleanup.sh; fi'
+            sh 'if [ -f ci/cleanup.sh ]; then bash ./ci/cleanup.sh; fi'
+            archiveArtifacts artifacts: '.ci-out/**', allowEmptyArchive: true
         }
         unsuccessful {
             echo "See the archived .ci-out/compose.log, php-errors.log and trivy-*.txt"

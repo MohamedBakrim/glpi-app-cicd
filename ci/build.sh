@@ -11,7 +11,6 @@ if [ -f ci/glpi.sha256 ]; then
     SHA=$(awk -v v="$GLPI_VERSION" '!/^#/ && $1 == v { print $2; exit }' ci/glpi.sha256 || true)
 fi
 
-SHORT=$(printf '%s' "${GIT_COMMIT}" | cut -c1-7)
 CREATED=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 COMMON=(
@@ -33,7 +32,6 @@ docker build "${COMMON[@]}" \
     --target php-fpm \
     --cache-from "${PHP_IMAGE}:${GLPI_VERSION}" \
     --tag "${PHP_IMAGE}:${TAG}" \
-    --tag "${PHP_IMAGE}:sha-${SHORT}" \
     --tag "${PHP_IMAGE}:${GLPI_VERSION}" \
     .
 ok "${PHP_IMAGE}:${TAG}"
@@ -43,7 +41,6 @@ docker build "${COMMON[@]}" \
     --target nginx \
     --cache-from "${WEB_IMAGE}:${GLPI_VERSION}" \
     --tag "${WEB_IMAGE}:${TAG}" \
-    --tag "${WEB_IMAGE}:sha-${SHORT}" \
     --tag "${WEB_IMAGE}:${GLPI_VERSION}" \
     .
 ok "${WEB_IMAGE}:${TAG}"

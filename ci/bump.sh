@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
-# The only "deploy" action Jenkins performs: change the pinned tags in the GitOps
-# repo. ArgoCD notices the commit and does the actual rollout.
-#
-# Writes tags in the chart's existing style: "12.0.2@sha256:<manifest digest>",
-# never a bare floating tag.
+# Update the two image tags in GitOps. ArgoCD deploys the new commit.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 # shellcheck source=ci/config.sh
@@ -15,12 +11,9 @@ source ci/config.sh
 need git
 need yq
 
-# Digests produced by publish.sh. Fall back to the build tag so a manual run of
-# bump.sh does not silently write an empty string.
-if [ -f .ci-out/digests.env ]; then
-    # shellcheck disable=SC1091
-    . .ci-out/digests.env
-fi
+# Use the image digests recorded by publish.sh.
+[ -f .ci-out/digests.env ] || fail "run ci/publish.sh first"
+. .ci-out/digests.env
 : "${PHP_DIGEST:?PHP_DIGEST missing — run ci/publish.sh first}"
 : "${WEB_DIGEST:?WEB_DIGEST missing — run ci/publish.sh first}"
 
@@ -42,14 +35,10 @@ cd "${WORK}"
 
 [ -f "${GITOPS_VALUES_FILE}" ] || fail "values file not found in GitOps repo: ${GITOPS_VALUES_FILE}"
 
-log "pin images"
-PHP_REPO="${PHP_IMAGE}" PHP_TAG="${PHP_TAG}" WEB_REPO="${WEB_IMAGE}" WEB_TAG="${WEB_TAG}" \
-yq -i "
-    ${YQ_PHP_REPO} = strenv(PHP_REPO) |
-    ${YQ_PHP_TAG}  = strenv(PHP_TAG) |
-    ${YQ_WEB_REPO} = strenv(WEB_REPO) |
-    ${YQ_WEB_TAG}  = strenv(WEB_TAG)
-" "${GITOPS_VALUES_FILE}"
+log "update image tags"
+PHP_TAG="${PHP_TAG}" WEB_TAG="${WEB_TAG}" yq -i \
+    ".image.tag = strenv(PHP_TAG) | .nginx.image.tag = strenv(WEB_TAG)" \
+    "${GITOPS_VALUES_FILE}"
 
 git config user.name  "jenkins-ci"
 git config user.email "jenkins-ci@${CI_DOMAIN:-localhost}"

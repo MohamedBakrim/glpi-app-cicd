@@ -1,0 +1,71 @@
+
+pipeline {
+    agent {
+        label 'Node-2'
+    }
+
+    environment {
+        REGISTRY = 'docker.io'
+        IMAGE_NAMESPACE = 'mdbak'
+    }
+
+    stages {
+
+        stage('Prepare') {
+            steps {
+                sh 'bash ci/prepare.sh'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                sh 'bash ci/build.sh'
+            }
+        }
+
+        stage('Security Scan') {
+            steps {
+                sh 'bash ci/security.sh'
+            }
+        }
+
+        stage('Smoke Test') {
+            steps {
+                sh 'bash ci/smoke.sh'
+            }
+        }
+
+        stage('Publish') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-creds',
+                        usernameVariable: 'DOCKERHUB_USERNAME',
+                        passwordVariable: 'DOCKERHUB_TOKEN'
+                    )
+                ]) {
+                    sh 'bash ci/publish.sh'
+                }
+            }
+        }
+        stage('Update GitOps values') {
+            when {
+                branch 'main'
+            }
+
+            steps {
+                withCredentials([
+                    string(
+                        credentialsId: 'gitops-token',
+                        variable: 'GITOPS_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        set -e
+                        bash ./ci/bump.sh
+                    '''
+                }
+            }
+}
+    }
+}

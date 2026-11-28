@@ -27,9 +27,6 @@ else
     echo "    WARNING: ${GLPI_VERSION} is not pinned. Run: ./ci/pin-version.sh ${GLPI_VERSION}"
 fi
 
-log "dockerfile lint (advisory)"
-docker build --check . 2>&1 | sed 's/^/    /' || true
-
 log "warm the build cache"
 docker pull "${PHP_IMAGE}:${GLPI_VERSION}" >/dev/null 2>&1 || echo "    no cached php image yet"
 docker pull "${WEB_IMAGE}:${GLPI_VERSION}" >/dev/null 2>&1 || echo "    no cached web image yet"

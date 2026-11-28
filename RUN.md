@@ -52,7 +52,7 @@ Optional extra gates:
 
 ```bash
 ./ci/scan.sh        # Trivy HIGH/CRITICAL gate (pulls aquasec/trivy)
-./ci/cleanup.sh     # drop the smoke stack + secrets + dangling images
+./ci/cleanup.sh     # stop the smoke stack and remove its temporary GitOps clone
 ```
 
 ### Watch the app while the smoke test runs
@@ -76,28 +76,37 @@ already in use. Stop it with `$C down -v`.
 
 ## B. Jenkins
 
+Use the existing Jenkins controller at <http://192.168.1.50:8080>. Its Linux build
+agent needs Bash, Git, Docker CLI + daemon access, Docker Compose, `yq`, and the
+Jenkins plugins Git, Pipeline, Pipeline: Multibranch, Credentials Binding, and
+Timestamper.
+
+Create the multibranch job and trigger its first branch scan from Git Bash at the
+repository root:
+
 ```bash
-cd jenkins
-echo "DOCKER_GID=$(getent group docker | cut -d: -f3)" > .env   # Linux; skip on Docker Desktop
-docker compose up -d --build
+export JENKINS_URL=http://192.168.1.50:8080
+export JENKINS_ADMIN_USER=admin
+read -rsp "Jenkins password or API token: " JENKINS_ADMIN_PASSWORD; echo
+export JENKINS_ADMIN_PASSWORD
+./jenkins/setup-job.sh
 ```
 
-Open <http://localhost:8080>, unlock with the initial admin password printed by
-`docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword`, install
-the suggested plugins plus **GitHub Branch Source** and **Credentials Binding**.
+The job definition lives in `jenkins/multibranch.xml`; it scans for branch changes
+every five minutes. The setup script uses your existing Jenkins login and triggers
+the initial scan.
 
-Then:
+Then add these credentials in Jenkins for the `main` delivery stages:
 
-1. **New Item → Multibranch Pipeline → Git**
-   `https://github.com/MohamedBakrim/glpi-app-cicd.git`
-2. Build configuration: **by Jenkinsfile**
-3. Credentials (only needed for Publish/GitOps/Verify):
-   `registry-creds`, `gitops-token`, `argocd-token` — see `README-CICD.md` §2.
-4. **Build with Parameters** → `GLPI_VERSION=12.0.2`.
+`registry-creds` (Docker Hub push access) and `gitops-token` (write access to the
+GitOps repo) — see `README-CICD.md` §2. Jenkins publishes both images and commits
+their new digest tags to `values-prod.yaml`; ArgoCD watches that repo and performs
+the rollout. Jenkins does not need an ArgoCD token. To exercise the build, smoke,
+and scan path without delivery credentials, use the `demo` branch.
 
-A PR build stops after Scan. A `main` build continues to Publish → GitOps bump →
-Verify. If you have not set `registry-creds`, comment out those three stages in
-the `Jenkinsfile` for the first run.
+A PR (or any non-`main` branch) stops after Scan. A `main` build continues to
+Publish → update GitOps values. Both delivery credentials must exist or the `main` build
+will fail at the first stage that needs the missing credential.
 
 ---
 

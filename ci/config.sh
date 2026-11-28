@@ -21,18 +21,10 @@
 # Chart keys: image.{repository,tag} and nginx.image.{repository,tag}
 : "${GITOPS_REPO_URL:=}"
 : "${GITOPS_VALUES_FILE:=values-prod.yaml}"
-: "${YQ_PHP_REPO:=.image.repository}"
-: "${YQ_PHP_TAG:=.image.tag}"
-: "${YQ_WEB_REPO:=.nginx.image.repository}"
-: "${YQ_WEB_TAG:=.nginx.image.tag}"
 
-: "${ARGOCD_SERVER:=}"
-: "${ARGOCD_APP:=glpi}"
-: "${PUBLIC_URL:=}"
 
 export REGISTRY IMAGE_NAMESPACE PHP_IMAGE WEB_IMAGE GLPI_VERSION TAG GIT_COMMIT
 export SMOKE_PROJECT TRIVY_SEVERITY GITOPS_REPO_URL GITOPS_VALUES_FILE
-export YQ_PHP_REPO YQ_PHP_TAG YQ_WEB_REPO YQ_WEB_TAG ARGOCD_SERVER ARGOCD_APP PUBLIC_URL
 
 # --- helpers -----------------------------------------------------------------
 log()  { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }

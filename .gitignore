@@ -1,7 +1,7 @@
 # Jenkins workspace / local run artifacts
 .ci-out/
 
-# Jenkins container secrets
+# Local Jenkins settings or secrets
 jenkins/.env
 
 # Local overrides
