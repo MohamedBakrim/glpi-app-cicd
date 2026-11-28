@@ -28,18 +28,16 @@ else
 fi
 
 log "php-fpm image"
-docker build "${COMMON[@]}" \
+docker build --pull --no-cache "${COMMON[@]}" \
     --target php-fpm \
-    --cache-from "${PHP_IMAGE}:${GLPI_VERSION}" \
     --tag "${PHP_IMAGE}:${TAG}" \
     --tag "${PHP_IMAGE}:${GLPI_VERSION}" \
     .
 ok "${PHP_IMAGE}:${TAG}"
 
 log "nginx image"
-docker build "${COMMON[@]}" \
+docker build --pull --no-cache "${COMMON[@]}" \
     --target nginx \
-    --cache-from "${WEB_IMAGE}:${GLPI_VERSION}" \
     --tag "${WEB_IMAGE}:${TAG}" \
     --tag "${WEB_IMAGE}:${GLPI_VERSION}" \
     .
