@@ -43,7 +43,9 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # link against, and php-fpm then dies on start with "undefined symbol".
 # The safe optimisation is a separate build stage that copies only the .so files
 # into a lean runtime — do that after the CI pipeline is green.
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
         bash patch gettext perl git unzip curl ca-certificates \
         libbz2-dev libfreetype6-dev libjpeg62-turbo-dev libpng-dev \
         libicu-dev libldap2-dev libzip-dev libxml2-dev \
@@ -205,6 +207,8 @@ CMD ["php-fpm"]
 # 4. Nginx runtime — static assets + proxy to PHP-FPM
 # -----------------------------------------------------------------------------
 FROM nginx:1.28-alpine AS nginx
+
+RUN apk upgrade --no-cache
 
 LABEL org.opencontainers.image.title="glpi-nginx" \
       org.opencontainers.image.description="GLPI 12 web frontend (nginx)" \
